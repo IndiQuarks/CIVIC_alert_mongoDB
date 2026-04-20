@@ -1,7 +1,8 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: 'https://civicalertmongodb-production-1d8c.up.railway.app/api' })
-
+const api = axios.create({
+  baseURL: 'https://api.ravulapalli-balaji.tech/api'
+})
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
