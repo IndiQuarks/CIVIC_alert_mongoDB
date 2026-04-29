@@ -26,7 +26,13 @@ export default function CitizenRegister() {
       const { data } = await api.post('/auth/register', form)
       setUserId(data.userId)
       setStep('otp')
-      toast.info('OTP sent to your email!')
+      // If email not configured, auto-fill OTP
+      if (data.otp) {
+        setOtp(data.otp)
+        toast.info(`Email not configured — your OTP is: ${data.otp}`)
+      } else {
+        toast.info('OTP sent to your email!')
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Registration failed')
     } finally { setLoading(false) }

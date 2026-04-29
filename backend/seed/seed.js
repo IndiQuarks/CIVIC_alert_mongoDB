@@ -1,8 +1,17 @@
-require('dotenv').config();
+const path = require('path');
+// Always resolve .env from the backend root, regardless of cwd
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
+
 const mongoose = require('mongoose');
 const Department = require('../models/Department');
 const Admin = require('../models/Admin');
 const Officer = require('../models/Officer');
+
+// Validate critical env vars before proceeding
+if (!process.env.MONGO_URI) {
+  console.error('❌ MONGO_URI is not set in .env — cannot seed.');
+  process.exit(1);
+}
 
 const departments = [
   {
@@ -71,15 +80,33 @@ const seed = async () => {
     const depts = await Department.insertMany(departments);
     console.log(`✅ ${depts.length} departments seeded`);
 
-    // Seed admin
+    // Seed admin — use env vars with guaranteed fallbacks
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@gunturcorporation.in';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
+    const adminName = process.env.ADMIN_NAME || 'GMC Admin';
+
     await Admin.deleteMany({});
     const admin = new Admin({
-      name: process.env.ADMIN_NAME || 'GMC Admin',
-      email: process.env.ADMIN_EMAIL || 'admin@gunturcorporation.in',
-      password: process.env.ADMIN_PASSWORD || 'Admin@123',
+      name: adminName,
+      email: adminEmail,
+      password: adminPassword,
     });
     await admin.save();
-    console.log(`✅ Admin seeded — Email: ${admin.email}  Password: ${process.env.ADMIN_PASSWORD || 'Admin@123'}`);
+
+    // ── POST-SEED VERIFICATION ──────────────────────────────────────────
+    // Re-fetch from DB and verify the password actually works
+    const savedAdmin = await Admin.findOne({ email: adminEmail });
+    const passwordWorks = await savedAdmin.matchPassword(adminPassword);
+    if (passwordWorks) {
+      console.log(`✅ Admin seeded & VERIFIED — login works!`);
+      console.log(`   Email:    ${adminEmail}`);
+      console.log(`   Password: ${adminPassword}`);
+    } else {
+      console.error(`❌ CRITICAL: Admin seeded but password verification FAILED!`);
+      console.error(`   The hashed password in DB does not match "${adminPassword}"`);
+      console.error(`   This means login will fail. Check bcryptjs installation.`);
+      process.exit(1);
+    }
 
     // Seed sample officers
     await Officer.deleteMany({});
@@ -97,8 +124,18 @@ const seed = async () => {
       const officer = new Officer(o);
       await officer.save();
     }
-    console.log(`✅ ${officerData.length} officers seeded`);
-    console.log('\n🎉 Seed complete! All officers have password: Officer@123');
+
+    // Verify one officer login too
+    const testOfficer = await Officer.findOne({ email: 'officer.apspdcl1@guntur.in' });
+    const officerPwWorks = await testOfficer.matchPassword('Officer@123');
+    if (officerPwWorks) {
+      console.log(`✅ ${officerData.length} officers seeded & verified`);
+    } else {
+      console.error(`❌ Officer password verification failed!`);
+    }
+
+    console.log('\n🎉 Seed complete!');
+    console.log('   All officers have password: Officer@123');
 
     mongoose.disconnect();
   } catch (err) {

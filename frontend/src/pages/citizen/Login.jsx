@@ -24,7 +24,12 @@ export default function CitizenLogin() {
       const d = err.response?.data
       if (d?.requiresVerification) {
         setOtpFlow(d.userId)
-        toast.info('Please verify your email first. OTP resent.')
+        if (d.otp) {
+          setOtp(d.otp)
+          toast.info(`Email not configured — your OTP is: ${d.otp}`)
+        } else {
+          toast.info('Please verify your email first. OTP resent.')
+        }
       } else {
         toast.error(d?.message || 'Login failed')
       }

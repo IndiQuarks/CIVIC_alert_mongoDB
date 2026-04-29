@@ -75,24 +75,41 @@ civic_portal/
 ### 1. Prerequisites
 - Node.js v18+
 - MongoDB (local or Atlas)
+- cloudflared (for tunnel deployment)
 
-### 2. Backend Setup
+### 2. Local Setup (Development)
 
 ```bash
+# Terminal 1 - Backend
 cd backend
 npm install
-cp .env.example .env
-# Edit .env — set MONGO_URI, JWT_SECRET, and optional MAIL_* for email OTP
-npm run seed          # Seeds 6 departments, admin account, 8 sample officers
-npm run dev           # Starts on http://localhost:5000
-```
+cp .env.example .env # Set MONGO_URI and JWT_SECRET
+npm run seed         # Seeds departments, admin, officers, and test user
+npm run dev          # Starts on http://localhost:5000
 
-### 3. Frontend Setup
-
-```bash
+# Terminal 2 - Frontend
 cd frontend
 npm install
-npm run dev           # Starts on http://localhost:5173
+npm run dev          # Starts on http://localhost:5173
+```
+
+### 3. Production Deployment (Cloudflare Tunnel)
+
+We use Cloudflare Tunnels to securely expose the local backend to a public `.tech` domain. The backend also serves the built frontend.
+
+```bash
+# 1. Build the frontend
+cd frontend
+npm run build
+
+# 2. Start servers (from project root)
+./start.sh
+```
+This script will start both the Node.js backend and the `cloudflared` tunnel in the background. Your app will be live at your configured Cloudflare domain.
+
+To stop the servers, run:
+```bash
+./stop.sh
 ```
 
 ---
@@ -102,9 +119,16 @@ npm run dev           # Starts on http://localhost:5173
 ### Admin
 | Field | Value |
 |-------|-------|
-| URL | http://localhost:5173/admin/login |
+| URL | /admin/login |
 | Email | admin@gunturcorporation.in |
 | Password | Admin@123 |
+
+### Test Citizen (Pre-verified)
+| Field | Value |
+|-------|-------|
+| URL | /login |
+| Email | ganesh@test.com |
+| Password | Ganesh@123 |
 
 ### Officers (8 seeded)
 | Email | Department | Password |
@@ -166,7 +190,8 @@ Admin can also reject → rejected
 ## Key Features
 
 - **JWT Authentication** for 3 separate portals (Citizen, Admin, Officer)
-- **OTP Email Verification** on citizen registration (prints to console if email not configured)
+- **OTP Email Verification** with professional HTML templates via Nodemailer (Gmail)
+- **Robust Validation** - detailed frontend error messages if registration fields are invalid
 - **GPS Geotag Extraction** — exifr reads lat/lng from uploaded photo EXIF data
 - **Browser GPS Capture** — one-click location from device GPS
 - **Photo Upload** — multer, up to 3 images per complaint + 3 resolution proof photos
@@ -180,16 +205,7 @@ Admin can also reject → rejected
 
 ---
 
-## Email OTP (Optional)
+## Email OTP Configuration
 
 Set `MAIL_USER` and `MAIL_PASS` (Gmail App Password) in `.env`.  
-If not set, OTPs are printed to the server console — fine for development.
-
----
-
-## Deployment Notes
-
-- **Backend**: Render, Railway, or any Node.js host
-- **Frontend**: Vercel (set `VITE_API_URL` and update vite proxy / axios baseURL)
-- **Database**: MongoDB Atlas (free tier works fine)
-- **File Storage**: For production, replace local Multer storage with Cloudinary or AWS S3
+If email sending fails or is not configured, the system falls back to providing the OTP in the API response, ensuring development and testing are not blocked.
